@@ -12,13 +12,19 @@
  * - Pulse (the short part / Active part):  LOW
  * - Pulse order:                           Randum
  * 
+ * - Relation between pulses on the various channels. 
+ *   : Individual 'I' Pulses act upon their own pulse length and interval. (Default)
+ *   : Sequential 'Q' Pulses starts after another), with a programmable pause between the pulses. 
+ *   : Simultaneously 'S' All pulses starts a the same time,
+ *   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  * 
  */
-#define SKETCH_VERSION "Programable puls generator - Version 0.0.0"
+#define SKETCH_VERSION "Programable puls generator - Version 0.1.1"
 
 #define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
 /*
  * Version histoty:
+ * 0.1.1 - Building in funktionality for handeling different "pulse orders".
  * 0.1.0 - Initial commit: Basic funktionalites are build in. No parameters are programmable, but the required program structure is in place.
  * 
  * 
@@ -59,6 +65,14 @@
 
 #define CONFIG_ADDRESS 0
 
+#define ACTIVE  0X1                               // Could ofcause use HIGH / LOW, but it makes more sense to define ACTIVE and PASSIVE as
+#define PASSIVE 0x0                               // ACTIVE can be a LOW pulse or a HIGH pulse. 
+
+/*
+ *  #####################################################################################################################
+ *                       V  A  R  I  A  B  L  E      D  E  F  I  N  A  I  T  O  N  S
+ *  #####################################################################################################################
+ */
 /* Incapsulate strings i a P(string) macro definition to handle strings in PROGram MEMory (PROGMEM) to reduce valuable memory  
  * MACRO for string handling from PROGMEM
  * https://todbot.com/blog/2008/06/19/how-to-do-big-strings-in-arduino/
@@ -68,15 +82,12 @@
  char p_buffer[150];
 #define P(str) (strcpy_P(p_buffer, PSTR(str)), p_buffer)
 
-/*
- *  #####################################################################################################################
- *                       V  A  R  I  A  B  L  E      D  E  F  I  N  A  I  T  O  N  S
- *  #####################################################################################################################
- */
 const int channelPin[MAX_NUMBER_OF_CHANNELS] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 
 unsigned long channelTimeStamp[MAX_NUMBER_OF_CHANNELS];
-boolean pinState[MAX_NUMBER_OF_CHANNELS];
+unsigned long channelOffsetStartTime[MAX_NUMBER_OF_CHANNELS];
+
+uint8_t pinState[MAX_NUMBER_OF_CHANNELS];           // A flag for storing the last state (Active / Passive) for the actual pin
 
 struct config_t                                     // Configuration are stored in a structure, and read from EEPROM. If no available, default parameters are written.
   {
@@ -100,15 +111,29 @@ void setConfigurationDefaults() {
                                                               #endif
   
   configuration.structVersion = CONFIGURATION_VERSION;
-  configuration.numberOfChannels = 1;
+  configuration.numberOfChannels = 2;
   for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
     configuration.pulseLength[ii] = 50;
     configuration.pulseInterval[ii] = 1000;
-    configuration.pulseActive[ii] = LOW;
-    configuration.pulsePassive[ii] = HIGH;
+    configuration.pulseActive[ii] = LOW;                                  // This define if the pulse is active LOW or active HIGH
+    if ( configuration.pulseActive[ii] == LOW )
+      configuration.pulsePassive[ii] = HIGH;                                // Needs to be the oppersit ove active!
+    else
+      configuration.pulsePassive[ii] = LOW;
   }
-  configuration.pulseOrder = 'R';
-  configuration.pulseOrderInterval = 100;
+
+//* TO BE REMOVED <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    configuration.pulseLength[1] = 100;
+    configuration.pulseInterval[1] = 2500;
+    configuration.pulseActive[1] = LOW;                                  // This define if the pulse is active LOW or active HIGH
+    if ( configuration.pulseActive[1] == LOW )
+      configuration.pulsePassive[1] = HIGH;                                // Needs to be the oppersit ove active!
+    else
+      configuration.pulsePassive[1] = LOW;
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+  configuration.pulseOrder = 'Q';
+  configuration.pulseOrderInterval = 250;
   int charsWritten = EEPROM_writeAnything( CONFIG_ADDRESS, configuration);
                                                               #ifdef DEBUG
                                                                 if ( charsWritten == sizeof( configuration))
@@ -148,6 +173,10 @@ void printConfiguration() {
  */
 
 void setup() {
+  unsigned long maxPulseLength = 0;
+  unsigned long maxPulseInterval = 0;
+  unsigned long maxPulsePeriod = 0;
+
   pinMode( LED_BUILTIN, OUTPUT);
   digitalWrite( LED_BUILTIN, HIGH);
   Serial.begin( 115200);
@@ -168,22 +197,69 @@ void setup() {
   if (configuration.structVersion != CONFIGURATION_VERSION)
     setConfigurationDefaults();
 
+// TO BE REMOVED  While ctesting and testing parameters  <<<<<<<<<<<<<<<<<<
+setConfigurationDefaults();
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
   printConfiguration();
 
 
  /* 
-  *  initialize output pins, ChannelTimeStamp
+  * Initialize output pins, ChannelTimeStamp
+  *  
+  * If relation between pulses on the various channels are configured as Sequential Q). pulseInterval are redefined
+  * to be the sum of pulselength plus pulseOrderIngerval for each cahnnel. Plus pulseInterval for the first channel (channel[0])
+  * Here the sum of all pulse length's plus pulsOrderInterval is calculated.
+  * 
   */
   for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
     pinMode( channelPin[ii], OUTPUT);
+    digitalWrite( channelPin[ii], configuration.pulsePassive[ii]);
     channelTimeStamp[ii] = 0;
-    pinState[ii] = LOW;
+    pinState[ii] = PASSIVE;
+    if ( configuration.pulseOrder == 'Q' ) {
+       maxPulsePeriod = maxPulsePeriod + configuration.pulseLength[ii] + configuration.pulseOrderInterval;
+       if ( ii > 0 )
+         channelOffsetStartTime[ii] = configuration.pulseLength[ii - 1] + configuration.pulseOrderInterval;
+       else
+         channelOffsetStartTime[ii] = 0; 
+    } else {
+      channelOffsetStartTime[ii] = 0;
+    }
   }
+  
+/*
+ * If relation between pulses on the various channels are configured as Sequential Q).
+ * Pulse interval for each puls are redefined to match, so that alle channels has the same.
+ */
+  if ( configuration.pulseOrder == 'Q') {
+     maxPulsePeriod = maxPulsePeriod + configuration.pulseInterval[0];      // Adding pulseInterval for the first channel (channel[0])
+     for ( int ii = 0; ii < configuration.numberOfChannels; ii++)
+       configuration.pulseInterval[ii] = maxPulsePeriod - configuration.pulseLength[ii];   
+  }
+
+ /*
+  * If relation between pulses on the various channels are configured as Simultaneously (S). pulseInterval are redefined
+  * to the largest pulselength plus the pulseOrderIngerval. Making all pins active at the same time, but keeping the 
+  * individual pulse length.
+  */ 
                                                               #ifdef DEBUG
                                                                 Serial.println(P("Initialized - Starting..."));
                                                               #endif
 
   digitalWrite( LED_BUILTIN, LOW);
+
+/*
+ * If relation between pulses on the various channels are configured as Sequential Q).
+ * To ensure the first activation of pulses, channelTimeStamp are set as close to currentTimeStamp as possible
+ * It's assumed that the pulseInterval for the first pulse i longer, than it take to enter the first if statement
+ * in loop().
+ */
+  if ( configuration.pulseOrder == 'Q') {
+    
+    unsigned long currentTimeStamp = millis();
+    for ( int ii = 0; ii < configuration.numberOfChannels; ii++) 
+      channelTimeStamp[ii] = currentTimeStamp;
+  }
 }
 
 /*
@@ -200,22 +276,23 @@ void loop() {
   unsigned long currentTimeStamp = millis();
 
   for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
-    if ( pinState[ii] == LOW && currentTimeStamp - channelTimeStamp[ii] > configuration.pulseInterval[ii]) {
+    if ( pinState[ii] == PASSIVE && currentTimeStamp - channelTimeStamp[ii] > configuration.pulseInterval[ii] + channelOffsetStartTime[ii]) {
       
       if ( ii == 0)
         digitalWrite( LED_BUILTIN, HIGH);
         
       digitalWrite( channelPin[ii], configuration.pulseActive[ii]);
-      pinState[ii] = HIGH;
-      channelTimeStamp[ii] = currentTimeStamp;    
-    } else if ( pinState[ii] == HIGH && currentTimeStamp - channelTimeStamp[ii] > configuration.pulseLength[ii]){
+      pinState[ii] = ACTIVE;
+      channelTimeStamp[ii] = currentTimeStamp; 
+      channelOffsetStartTime[ii] = 0;   
+    } else if ( pinState[ii] == ACTIVE && currentTimeStamp - channelTimeStamp[ii] > configuration.pulseLength[ii]){
        
       if ( ii == 0)
         digitalWrite( LED_BUILTIN, LOW );
         
-     digitalWrite( channelPin[ii], configuration.pulsePassive[ii]);
-     pinState[ii] = LOW;
-     channelTimeStamp[ii] = currentTimeStamp;
+      digitalWrite( channelPin[ii], configuration.pulsePassive[ii]);
+      pinState[ii] = PASSIVE;
+      channelTimeStamp[ii] = currentTimeStamp;
     }
   }
 }

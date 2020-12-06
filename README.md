@@ -8,12 +8,15 @@
  - Puls length in millis for each channel.
  - Puls interval in millis for each channel.
  - Relation between pulses on the various channels. 
-   : Simultaneously (All pulses starts a the same time),
-   : Sequential (Pulses starts after another), with a programmable pause between the pulses. 
-   : Randum (Pulses starts randumly om each channel and follow their own length and interval)
+   : Individual 'I' Pulses starts Simultaneously, but act upon their own pulse length and interval. (Default)
+   : Simultaneously 'S' All pulses starts a the same time,
+   : Sequential 'Q' Pulses starts after another), with a programmable pause between the pulses. 
+   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  - The pulse length on each channel can be selected as LOW pulse or HIGH pulse.
 
  * Version histoty:
+ * 0.1.1 - Building in funktionality for handeling different "pulse orders".
+         - pinState re-defined to match ACTIVE / PASSIVE pulse instead of LOW / HIGH.
  * 0.1.0 - Initial commit: Basic funktionalites are build in. No parameters are programmable, but the required program structure is in place.
 
 Project eligibility. 
