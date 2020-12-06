@@ -44,7 +44,7 @@
  * Pin  11: 
  * Pin  12: 
  * Pin  13: LED_BUILTIN. 
- * Pin 14 (A0):
+ * Pin 14 (A0): RANDUM_SEED_PIN    Used for randumSeed() to generate different seed numbers each time the sketch runs.
  * Pin 15 (A1): 
  * Pin 16 (A2):
  * Pin 17 (A3):
@@ -63,7 +63,7 @@
 */
 #define CONFIGURATION_VERSION 1
 #define MAX_NUMBER_OF_CHANNELS 10
-
+#define RANDUM_SEED_PIN 0
 #define CONFIG_ADDRESS 0
 
 #define ACTIVE  0X1                               // Could ofcause use HIGH / LOW, but it makes more sense to define ACTIVE and PASSIVE as
@@ -122,18 +122,7 @@ void setConfigurationDefaults() {
     else
       configuration.pulsePassive[ii] = LOW;
   }
-
-//* TO BE REMOVED <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-    configuration.pulseLength[1] = 100;
-    configuration.pulseInterval[1] = 2500;
-    configuration.pulseActive[1] = LOW;                                  // This define if the pulse is active LOW or active HIGH
-    if ( configuration.pulseActive[1] == LOW )
-      configuration.pulsePassive[1] = HIGH;                                // Needs to be the oppersit ove active!
-    else
-      configuration.pulsePassive[1] = LOW;
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-  configuration.pulseOrder = 'S';
+  configuration.pulseOrder = 'R';
   configuration.pulseOrderInterval = 250;
   int charsWritten = EEPROM_writeAnything( CONFIG_ADDRESS, configuration);
                                                               #ifdef DEBUG
@@ -198,9 +187,6 @@ void setup() {
   if (configuration.structVersion != CONFIGURATION_VERSION)
     setConfigurationDefaults();
 
-// TO BE REMOVED  While ctesting and testing parameters  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-setConfigurationDefaults();
-//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
   printConfiguration();
 
 
@@ -222,7 +208,7 @@ setConfigurationDefaults();
        maxPulsePeriod = maxPulsePeriod + configuration.pulseLength[ii] + configuration.pulseOrderInterval;   //To ensure that all pulses on all channels can be within the same period
        if ( ii > 0 )
          channelOffsetStartTime[ii] = configuration.pulseLength[ii - 1] + configuration.pulseOrderInterval;  //To start the pulses in sequentiel order, calculate offset
-    } else if ( configuration.pulseOrder == 'S' ) {
+    } else if ( configuration.pulseOrder == 'S' || configuration.pulseOrder == 'R' ) {
       if ( configuration.pulseLength[ii] > maxPulseLength)
         maxPulseLength = configuration.pulseLength[ii];
       if ( configuration.pulseInterval[ii] > maxPulseInterval)
@@ -253,6 +239,16 @@ setConfigurationDefaults();
       configuration.pulseInterval[ii] = maxPulsePeriod - configuration.pulseLength[ii];   
     delay(maxPulsePeriod);
   }
+
+  /*
+   * If relation between pulses on the various channels are configured as Randum (R), a randum value is configured for channelOffsetStartTime
+   */
+   if (configuration.pulseOrder == 'R') {
+     maxPulsePeriod = maxPulseLength + maxPulseInterval;
+     randomSeed(analogRead(RANDUM_SEED_PIN));
+     for ( int ii = 0; ii < configuration.numberOfChannels; ii++)
+       channelOffsetStartTime[ii] = random( maxPulsePeriod);
+   }
                                                               #ifdef DEBUG
                                                                 Serial.println(P("Initialized - Starting..."));
                                                               #endif
@@ -260,12 +256,13 @@ setConfigurationDefaults();
   digitalWrite( LED_BUILTIN, LOW);
 
 /*
- * If relation between pulses on the various channels are configured as Sequential Q).
- * To ensure the first activation of pulses, channelTimeStamp are set as close to currentTimeStamp as possible
+ * If relation between pulses on the various channels are configured as Sequential (Q) or Randum (R):
+ * To ensure the first activation of pulses are activated accoring to time stamps, channelTimeStamp are set as close 
+ * to currentTimeStamp as possible. 
  * It's assumed that the pulseInterval for the first pulse i longer, than it take to enter the first "if" statement
  * in loop().
  */
-  if ( configuration.pulseOrder == 'Q') {
+  if ( configuration.pulseOrder == 'Q' || configuration.pulseOrder == 'R') {
     
     unsigned long currentTimeStamp = millis();
     for ( int ii = 0; ii < configuration.numberOfChannels; ii++) 
