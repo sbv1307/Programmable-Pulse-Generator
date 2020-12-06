@@ -5,17 +5,18 @@
  * 
  * Programmable parameters:
  * Only the structure for programmable parameters are in place. The parameters hardcoded as "default parameters" in function setConfigurationDefaults().
- * Parameters are:
- * - Number of channels:                    1 
- * - Pulse length:                          50
- * - Pulse interval:                        1000
+ * Parameters are and their defaults:
+ * - Number of channels (MAX 10):           1 
+ * - Pulse length in millis:                50
+ * - Pulse interval in millis:              1000
+ * - Pulse order interval in millis:        250
  * - Pulse (the short part / Active part):  LOW
- * - Pulse order:                           Randum
- * 
- * - Relation between pulses on the various channels. 
- *   : Individual 'I' Pulses act upon their own pulse length and interval. (Default)
- *   : Sequential 'Q' Pulses starts after another), with a programmable pause between the pulses. 
- *   : Simultaneously 'S' All pulses starts a the same time,
+ * - Pulse order:                           Individual (I) 
+ *  
+ * - Pulse order - Relation between pulses on the various channels. 
+ *   : Individual 'I' Pulses act upon their own pulse length and interval (Default).
+ *   : Sequential 'Q' Pulses starts after another), with a programmable pause (Pulse order interval) between the pulses. 
+ *   : Simultaneously 'S' All pulses starts a the same time.
  *   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  * 
  */
@@ -132,7 +133,7 @@ void setConfigurationDefaults() {
       configuration.pulsePassive[1] = LOW;
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-  configuration.pulseOrder = 'Q';
+  configuration.pulseOrder = 'S';
   configuration.pulseOrderInterval = 250;
   int charsWritten = EEPROM_writeAnything( CONFIG_ADDRESS, configuration);
                                                               #ifdef DEBUG
@@ -197,9 +198,9 @@ void setup() {
   if (configuration.structVersion != CONFIGURATION_VERSION)
     setConfigurationDefaults();
 
-// TO BE REMOVED  While ctesting and testing parameters  <<<<<<<<<<<<<<<<<<
+// TO BE REMOVED  While ctesting and testing parameters  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 setConfigurationDefaults();
-//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
   printConfiguration();
 
 
@@ -216,14 +217,16 @@ setConfigurationDefaults();
     digitalWrite( channelPin[ii], configuration.pulsePassive[ii]);
     channelTimeStamp[ii] = 0;
     pinState[ii] = PASSIVE;
+    channelOffsetStartTime[ii] = 0;
     if ( configuration.pulseOrder == 'Q' ) {
-       maxPulsePeriod = maxPulsePeriod + configuration.pulseLength[ii] + configuration.pulseOrderInterval;
+       maxPulsePeriod = maxPulsePeriod + configuration.pulseLength[ii] + configuration.pulseOrderInterval;   //To ensure that all pulses on all channels can be within the same period
        if ( ii > 0 )
-         channelOffsetStartTime[ii] = configuration.pulseLength[ii - 1] + configuration.pulseOrderInterval;
-       else
-         channelOffsetStartTime[ii] = 0; 
-    } else {
-      channelOffsetStartTime[ii] = 0;
+         channelOffsetStartTime[ii] = configuration.pulseLength[ii - 1] + configuration.pulseOrderInterval;  //To start the pulses in sequentiel order, calculate offset
+    } else if ( configuration.pulseOrder == 'S' ) {
+      if ( configuration.pulseLength[ii] > maxPulseLength)
+        maxPulseLength = configuration.pulseLength[ii];
+      if ( configuration.pulseInterval[ii] > maxPulseInterval)
+        maxPulseInterval = configuration.pulseInterval[ii];
     }
   }
   
@@ -239,9 +242,17 @@ setConfigurationDefaults();
 
  /*
   * If relation between pulses on the various channels are configured as Simultaneously (S). pulseInterval are redefined
-  * to the largest pulselength plus the pulseOrderIngerval. Making all pins active at the same time, but keeping the 
+  * to the largest pulse period. This will make all pins active at the same time, but keeping the 
   * individual pulse length.
+  * 
+  * To ensure that "currentTimeStamp - channelTimeStamp[ii] > configuration.pulseInterval[ii]" for all channels when entering loop(), delay the startup with maxPulsePeriod.
   */ 
+  if ( configuration.pulseOrder == 'S') {
+    maxPulsePeriod = maxPulseLength + maxPulseInterval;
+    for ( int ii = 0; ii < configuration.numberOfChannels; ii++)
+      configuration.pulseInterval[ii] = maxPulsePeriod - configuration.pulseLength[ii];   
+    delay(maxPulsePeriod);
+  }
                                                               #ifdef DEBUG
                                                                 Serial.println(P("Initialized - Starting..."));
                                                               #endif
@@ -251,7 +262,7 @@ setConfigurationDefaults();
 /*
  * If relation between pulses on the various channels are configured as Sequential Q).
  * To ensure the first activation of pulses, channelTimeStamp are set as close to currentTimeStamp as possible
- * It's assumed that the pulseInterval for the first pulse i longer, than it take to enter the first if statement
+ * It's assumed that the pulseInterval for the first pulse i longer, than it take to enter the first "if" statement
  * in loop().
  */
   if ( configuration.pulseOrder == 'Q') {
