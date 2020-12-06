@@ -15,6 +15,7 @@
  - The pulse length on each channel can be selected as LOW pulse or HIGH pulse.
 
  ### Version histoty:
+ * 1.0.0 - Prod. version.
  * 0.2.0 - Versions 0.2.x is for developing Programmable interface.
          - Taking the REST approch for programming parameters. 
  * 0.1.1 - Building in funktionality for handeling different "pulse orders".
