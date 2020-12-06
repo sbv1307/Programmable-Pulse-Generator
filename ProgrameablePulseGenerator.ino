@@ -20,11 +20,12 @@
  *   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  * 
  */
-#define SKETCH_VERSION "Programable puls generator - Version 0.2.0"
+#define SKETCH_VERSION "Programable puls generator - Version 1.0.0"
 
-#define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
+// #define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
 /*
  * Version histoty:
+ * 1.0.0 - Prod. version.
  * 0.2.0 - Versions 0.2.x is for developing Programmable interface.
  *       - 
  * 0.1.1 - Building in funktionality for handeling different "pulse orders".
@@ -270,7 +271,13 @@ void handleRest() {
     //                ----------------------------------------------------------------------------------------------------------------------------------------------------- (149 characters
     Serial.println(P("\n\nConfigurable parameters for keyword <configurations>:\n\n<numberOfChannels>  /<1 - 10>\n<pulseOrder>        /<I, S, Q or R>"));
     Serial.println(P("<pulseOrderInterval>/<millisecunds>\n<pulseLength>       /<channel 1-10>/<millisecunds>\n<pulsePeriod>       /<channel 1-10>/<millisecunds>"));
-    Serial.println(P("<pulseActive>       /<channel 1-10>/<LOW or HIGH>\n\nEksample:\nconfigurations/pulseLength/2/50\nSets the pulse lenngth for channel 2 to 50 ms.\n\n\n"));
+    Serial.println(P("<pulseActive>       /<channel 1-10>/<LOW or HIGH>\n\nEksamples:"));
+    Serial.println(P("configurations/numberOfChannels/3             Sets number of channels to 3"));
+    Serial.println(P("configurations/pulseOrder/S                   Sets puls order to Simultaneously"));
+    Serial.println(P("configurations/pulseOrderInterval/250         Sets puls interval to 250 ms."));
+    Serial.println(P("configurations/pulseLength/2/50               Sets the pulse lenngth for channel 2 to 50 ms."));
+    Serial.println(P("configurations/pulsePeriod/1/500              Sets pulse period to 500 ms."));
+    Serial.println(P("configurations/pulseActive/1/HIGH             Sets puls as a HIGH pulse\n\n"));
     
   }  
   while (Serial.available()) {
