@@ -10,6 +10,8 @@
  * - Pulse length in millis:                50
  * - Pulse interval in millis:              1000
  * - Pulse order interval in millis:        250
+ * - Number of pulses:                      1
+ * - Run continously:                       true
  * - Pulse (the short part / Active part):  LOW
  * - Pulse order:                           Individual (I) 
  *  
@@ -20,11 +22,13 @@
  *   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  * 
  */
-#define SKETCH_VERSION "Programable puls generator - Version 1.0.0"
+#define SKETCH_VERSION "Programable puls generator - Version 1.1.0"
 
-// #define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
+//#define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
 /*
  * Version histoty:
+ * 1.1.0 - Adding push button funktionality, which will fire a configured number of pulses on each channel. 
+ *       - Configuration structure is changed.
  * 1.0.0 - Prod. version.
  * 0.2.0 - Versions 0.2.x is for developing Programmable interface.
  *       - 
@@ -51,7 +55,7 @@
  * Pin 16 (A2):
  * Pin 17 (A3):
  * Pin 18 (A4):
- * Pin 19 (A5):
+ * Pin 19 (A5): Button pin. Button to running in non continoougious mode (file configured numer of pulses)
 
  */
 #include <EEPROM.h>
@@ -63,9 +67,10 @@
  *                       C  O  N  F  I  G  U  T  A  B  L  E       D  E  F  I  N  I  T  I  O  N  S
  * ######################################################################################################################################
 */
-#define CONFIGURATION_VERSION 1
+#define CONFIGURATION_VERSION 2
 #define MAX_NUMBER_OF_CHANNELS 10
 #define RANDUM_SEED_PIN 0
+#define BUTTON_PIN 19
 #define CONFIG_ADDRESS 0
 
 #define ACTIVE  0X1                               // Could ofcause use HIGH / LOW, but it makes more sense to define ACTIVE and PASSIVE as
@@ -89,13 +94,26 @@ const int channelPin[MAX_NUMBER_OF_CHANNELS] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
 
 unsigned long channelTimeStamp[MAX_NUMBER_OF_CHANNELS];
 unsigned long channelOffsetStartTime[MAX_NUMBER_OF_CHANNELS];
+int numberOfPulses[MAX_NUMBER_OF_CHANNELS];
 
 uint8_t pinState[MAX_NUMBER_OF_CHANNELS];           // A flag for storing the last state (Active / Passive) for the actual pin
+
+// Variables for controlling button input
+int lastButtonState = HIGH;   // the previous reading from the input pin
+boolean buttonPressedOnce = false;
+
+// the following variables are unsigned longs because the time, measured in
+// milliseconds, will quickly become a bigger number than can be stored in an int.
+unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
+unsigned long debounceDelay = 250;    // the debounce time; increase if the output flickers
+
 
 struct config_t                                     // Configuration are stored in a structure, and read from EEPROM. If no available, default parameters are written.
   {
     int structVersion;                              //A way to determind the correct confiugration structure.
     int numberOfChannels;
+    int numberOfPulses[MAX_NUMBER_OF_CHANNELS];               //Number of pulses fired, when push button is pushed twice.
+    boolean runContinous;                                     //When bottun is pushed twice, this will be changed to false.
     char pulseOrder;                                          //A character value, which describe Simultaneously (S), Sequential (Q), Randum (R) 
     unsigned long pulseOrderInterval ;                        //In Sequentially mode a value between the pulses on each channel
     unsigned long pulseLength[MAX_NUMBER_OF_CHANNELS];        //Puls Length is in millisecunds.
@@ -117,9 +135,11 @@ void setConfigurationDefaults() {
   
   configuration.structVersion = CONFIGURATION_VERSION * 100 + MAX_NUMBER_OF_CHANNELS;
   configuration.numberOfChannels = 2;
+  configuration.runContinous = true;                            //Default run continously. if false only the configured number of pulses will be fired
   for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
     configuration.pulseLength[ii] = 50;
     configuration.pulseInterval[ii] = 1000;
+    configuration.numberOfPulses[ii] = 1;
     configuration.pulseActive[ii] = LOW;                                  // This define if the pulse is active LOW or active HIGH
     if ( configuration.pulseActive[ii] == LOW )
       configuration.pulsePassive[ii] = HIGH;                                // Needs to be the oppersit ove active!
@@ -135,7 +155,6 @@ void setConfigurationDefaults() {
                                                                 else
                                                                   Serial.println(P("F A I L E D   Writing configuration to EEPROM"));
                                                               #endif
-  
 }
 
 void printConfiguration() {
@@ -152,10 +171,17 @@ void printConfiguration() {
     Serial.print(configuration.pulseInterval[ii]);
     Serial.print(P(" Pulse active: "));
     if ( configuration.pulseActive[ii] == HIGH)
-      Serial.println(P("HIGH"));
+      Serial.print(P("HIGH"));
     else
-      Serial.println(P("LOW"));
+      Serial.print(P("LOW"));
+    Serial.print(P(". Number of pulses generated if Infinite run: "));
+    Serial.println( configuration.numberOfPulses[ii]);
   }
+  if ( configuration.runContinous)
+    Serial.println(P("Run continously."));
+  else
+    Serial.println(P("Run Infinite."));
+    
   Serial.print(P("Pulse order: "));
   Serial.println(configuration.pulseOrder);
   Serial.print(P("Pulse order interval: "));
@@ -232,6 +258,15 @@ void handleRest() {
         if ( value > configuration.pulseLength[channel - 1] && value <= 60000 )
           configuration.pulseInterval[channel - 1] = value - configuration.pulseLength[channel - 1];        
       }
+    } else if ( strcmp( "numberOfPulses", p_buffer) == 0) {
+
+      //>>>>>>>>>>>>>>>>     Setting Number of pulses fiered  <<<<<<<<<<<<<<
+      int channel = Serial.parseInt();
+      if ( channel > 0 && channel <= configuration.numberOfChannels) {
+        int value = Serial.parseInt();
+        if ( value > 1 && value <= 100000 )
+          configuration.numberOfPulses[channel - 1] = value;       
+      }
     } else if ( strcmp( "pulseActive", p_buffer) == 0) {
       
       //>>>>>>>>>>>>>>>>     Setting pulse acgive HIGH or LOW  <<<<<<<<<<<<<<
@@ -263,22 +298,20 @@ void handleRest() {
 
     delay(1000);
     resetFunc();                                  // Call reset, to start pulse generator with new configuration.
-
-    
   } else {
     Serial.print("Unknown command - expected <configurations>: ");
     Serial.println(p_buffer);
     //                ----------------------------------------------------------------------------------------------------------------------------------------------------- (149 characters
     Serial.println(P("\n\nConfigurable parameters for keyword <configurations>:\n\n<numberOfChannels>  /<1 - 10>\n<pulseOrder>        /<I, S, Q or R>"));
     Serial.println(P("<pulseOrderInterval>/<millisecunds>\n<pulseLength>       /<channel 1-10>/<millisecunds>\n<pulsePeriod>       /<channel 1-10>/<millisecunds>"));
-    Serial.println(P("<pulseActive>       /<channel 1-10>/<LOW or HIGH>\n\nEksamples:"));
+    Serial.println(P("<pulseActive>       /<channel 1-10>/<LOW or HIGH>\n<numberOfPulses>    /<1 - 100000>\n\nEksamples to copy-paste into the serial monitor:"));
     Serial.println(P("configurations/numberOfChannels/3             Sets number of channels to 3"));
     Serial.println(P("configurations/pulseOrder/S                   Sets puls order to Simultaneously"));
     Serial.println(P("configurations/pulseOrderInterval/250         Sets puls interval to 250 ms."));
     Serial.println(P("configurations/pulseLength/2/50               Sets the pulse lenngth for channel 2 to 50 ms."));
     Serial.println(P("configurations/pulsePeriod/1/500              Sets pulse period to 500 ms."));
-    Serial.println(P("configurations/pulseActive/1/HIGH             Sets puls as a HIGH pulse\n\n"));
-    
+    Serial.println(P("configurations/pulseActive/1/HIGH             Sets puls as a HIGH pulse"));
+    Serial.println(P("configurations/numberOfPulses/1/1000          Sets the number of pulses to be fired, after second push on the push button.\n\n"));
   }  
   while (Serial.available()) {
     char c = Serial.read();
@@ -317,6 +350,7 @@ void setup() {
                                                                 }
                                                                 
                                                               #endif
+  pinMode( BUTTON_PIN, INPUT_PULLUP);
 /*
  * Read configuration. If not allready set or incorrect version, set defaults.
  */
@@ -393,6 +427,16 @@ void setup() {
   digitalWrite( LED_BUILTIN, LOW);
 
 /*
+ * If programmed for Intermittent run transfer number of pulses per channnel, other wise set to 1;
+ */
+for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
+  if ( !configuration.runContinous) 
+    numberOfPulses[ii] = configuration.numberOfPulses[ii];
+  else
+    numberOfPulses[ii] = 1; 
+}
+ 
+/*
  * If relation between pulses on the various channels are configured as Sequential (Q) or Randum (R):
  * To ensure the first activation of pulses are activated accoring to time stamps, channelTimeStamp are set as close 
  * to currentTimeStamp as possible. 
@@ -417,20 +461,24 @@ void setup() {
  * ###################################################################################################
  */
 void loop() {
-  
+
+  /*
+   * <<<<<<<<<<<<<<<<<<<<<<<<<<<<  Pulse counting section >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><
+   */
   unsigned long currentTimeStamp = millis();
 
   for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
-    if ( pinState[ii] == PASSIVE && currentTimeStamp - channelTimeStamp[ii] > configuration.pulseInterval[ii] + channelOffsetStartTime[ii]) {
-      
+    if ( pinState[ii] == PASSIVE && currentTimeStamp - channelTimeStamp[ii] > configuration.pulseInterval[ii] + channelOffsetStartTime[ii] && numberOfPulses[ii] > 0) {
       if ( ii == 0)
         digitalWrite( LED_BUILTIN, HIGH);
         
       digitalWrite( channelPin[ii], configuration.pulseActive[ii]);
       pinState[ii] = ACTIVE;
       channelTimeStamp[ii] = currentTimeStamp; 
-      channelOffsetStartTime[ii] = 0;   
-    } else if ( pinState[ii] == ACTIVE && currentTimeStamp - channelTimeStamp[ii] > configuration.pulseLength[ii]){
+      channelOffsetStartTime[ii] = 0;
+      if ( !configuration.runContinous)
+        numberOfPulses[ii]--;
+   } else if ( pinState[ii] == ACTIVE && currentTimeStamp - channelTimeStamp[ii] > configuration.pulseLength[ii]){
        
       if ( ii == 0)
         digitalWrite( LED_BUILTIN, LOW );
@@ -441,6 +489,68 @@ void loop() {
     }
   }
 
+    /*
+   * <<<<<<<<<<<<<<<<<<<<<<<<<<<<  Push button section >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><
+   */
+
+  // read the state of the switch into a local variable:
+
+  int currentButtonState = digitalRead( BUTTON_PIN);
+  
+  // check to see if you just pressed the button
+  // (i.e. the input went from LOW to HIGH), and you've waited long enough
+  // since the last press to ignore any noise:
+
+  // If the switch changed, due to noise or pressing:
+  if (currentButtonState == LOW and currentButtonState != lastButtonState) {
+    // reset the debouncing timer
+    lastDebounceTime = millis();
+    lastButtonState = currentButtonState;
+  } else if ( lastButtonState != currentButtonState) {
+    if ((millis() - lastDebounceTime) > debounceDelay) {
+                                                              #ifdef DEBUG
+                                                                Serial.println(P("Button pressed"));
+                                                              #endif
+      if ( buttonPressedOnce) {
+                                                              #ifdef DEBUG
+                                                                Serial.println(P("Button pressed twice"));
+                                                              #endif
+      configuration.runContinous = false;
+      int charsWritten = EEPROM_writeAnything( CONFIG_ADDRESS, configuration);
+                                                              #ifdef DEBUG
+                                                                if ( charsWritten == sizeof( configuration))
+                                                                  Serial.println(P("Intermittent run written to configuration.\n\nRestarting...\n\n"));
+                                                                else
+                                                                  Serial.println(P("F A I L E D   Writing configuration to EEPROM"));
+                                                              #endif
+      delay(1000);
+      resetFunc();                                  // Call reset, to start pulse generator with new configuration.
+
+      } else {
+        if (configuration.runContinous == false) {
+          configuration.runContinous = true;
+          int charsWritten = EEPROM_writeAnything( CONFIG_ADDRESS, configuration);
+                                                              #ifdef DEBUG
+                                                                if ( charsWritten == sizeof( configuration))
+                                                                  Serial.println(P("Continous run written to configuration.\n\nRestarting...\n\n"));
+                                                                else
+                                                                  Serial.println(P("F A I L E D   Writing configuration to EEPROM"));
+                                                              #endif
+      
+          delay(1000);
+          resetFunc();                                  // Call reset, to start pulse generator with new configuration.
+        }
+        buttonPressedOnce = true;
+        lastButtonState = currentButtonState;
+      }
+      for ( int ii; ii < configuration.numberOfChannels; ii++)
+        numberOfPulses[ii] = 0;
+    }
+  }
+
+  /*
+   * <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Programming section  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+   */
   if ( Serial.available())
     handleRest();
 }
