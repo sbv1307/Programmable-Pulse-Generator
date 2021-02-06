@@ -54,6 +54,26 @@
  * configurations/pulseActive/1/HIGH
  * configurations/numberOfPulses/1/1000
 
+##### Ardhino nano Pin definition/layout:***
+ * Pin  0: Serial RX
+ * Pin  1: Serial TX
+ * Pin  2: Channel pin 1:
+ * Pin  3: Channel pin 2: 
+ * Pin  4: Channel pin 3:
+ * Pin  5: Channel pin 4:
+ * Pin  6: Channel pin 5:
+ * Pin  7: Channel pin 6:
+ * Pin  8: Channel pin 7:
+ * Pin  10: Channel pin 9:
+ * Pin  11: Channel pin 10:
+ * Pin  12: Channel pin 11:
+ * Pin  13: LED_BUILTIN. 
+ * Pin  14: (A0): RANDUM_SEED_PIN    Used for randumSeed() to generate different seed numbers each time the sketch runs.
+ * Pin  15: (A1): N/C
+ * Pin  16: (A2): N/C
+ * Pin  17: (A3): N/C
+ * Pin  18: (A4): N/C
+ * Pin  19: (A5): Button pin. Button to running in non continoougious mode (file configured numer of pulses)
 
 
 Project eligibility. 

@@ -22,11 +22,12 @@
  *   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  * 
  */
-#define SKETCH_VERSION "Programable puls generator - Version 1.1.0"
+#define SKETCH_VERSION "Programable puls generator - Version 1.1.1"
 
 //#define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
 /*
  * Version histoty:
+ * 1.1.1 - Documentation update - No funktional changes
  * 1.1.0 - Adding push button funktionality, which will fire a configured number of pulses on each channel. 
  *       - Configuration structure is changed.
  * 1.0.0 - Prod. version.
@@ -50,13 +51,12 @@
  * Pin  11: Channel pin 10:
  * Pin  12: Channel pin 11:
  * Pin  13: LED_BUILTIN. 
- * Pin 14 (A0): RANDUM_SEED_PIN    Used for randumSeed() to generate different seed numbers each time the sketch runs.
- * Pin 15 (A1): 
- * Pin 16 (A2):
- * Pin 17 (A3):
- * Pin 18 (A4):
- * Pin 19 (A5): Button pin. Button to running in non continoougious mode (file configured numer of pulses)
-
+ * Pin  14: (A0): RANDUM_SEED_PIN    Used for randumSeed() to generate different seed numbers each time the sketch runs.
+ * Pin  15: (A1): N/C
+ * Pin  16: (A2): N/C
+ * Pin  17: (A3): N/C
+ * Pin  18: (A4): N/C
+ * Pin  19: (A5): Button pin. Button to running in non continoougious mode (file configured numer of pulses)
  */
 #include <EEPROM.h>
 #include "EEPROMAnything.h"
@@ -186,6 +186,8 @@ void printConfiguration() {
   Serial.println(configuration.pulseOrder);
   Serial.print(P("Pulse order interval: "));
   Serial.println(configuration.pulseOrderInterval);
+  Serial.print(P("Connect Pushbutton to pin#: "));
+  Serial.println(BUTTON_PIN);
 }
 
 /*
