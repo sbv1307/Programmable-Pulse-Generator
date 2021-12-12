@@ -1,7 +1,7 @@
 {
     "board": "arduino:avr:nano",
-    "configuration": "cpu=atmega328",
-    "port": "COM11",
+    "port": "COM6",
     "programmer": "AVR ISP",
-    "sketch": "ProgrameablePulseGenerator.ino"
+    "sketch": "ProgrameablePulseGenerator.ino",
+    "configuration": "cpu=atmega328"
 }
