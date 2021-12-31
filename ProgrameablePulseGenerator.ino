@@ -21,11 +21,15 @@
  *   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  * 
  */
-#define SKETCH_VERSION "Programable puls generator - Version 1.1.2"
+#define SKETCH_VERSION "Programable puls generator - Version 1.2.0"
 
-//#define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
+/*
+ *    Defining DEBUGGING
+ */
+// #define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
 /*
  * Version histoty:
+ * 1.2.0 - Configuration bugfixes - Configuration defaults change to confiture alle MAX_NUMBER_OF_CHANNELS channels.
  * 1.1.2 - Minor documentation corrections - No funktional changes
  * 1.1.1 - Documentation update - No funktional changes
  * 1.1.0 - Adding push button funktionality, which will fire a configured number of pulses on each channel. 
@@ -67,7 +71,7 @@
  *                       C  O  N  F  I  G  U  T  A  B  L  E       D  E  F  I  N  I  T  I  O  N  S
  * ######################################################################################################################################
 */
-#define CONFIGURATION_VERSION 2
+#define CONFIGURATION_VERSION 3
 #define MAX_NUMBER_OF_CHANNELS 10
 #define RANDUM_SEED_PIN 0
 #define BUTTON_PIN 19
@@ -134,7 +138,7 @@ void setConfigurationDefaults() {
                                                               #endif
   
   configuration.structVersion = CONFIGURATION_VERSION * 100 + MAX_NUMBER_OF_CHANNELS;
-  configuration.numberOfChannels = 2;
+  configuration.numberOfChannels = MAX_NUMBER_OF_CHANNELS;
   configuration.runContinous = true;                            //Default run continously. if false only the configured number of pulses will be fired
   for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
     configuration.pulseLength[ii] = 50;
@@ -167,8 +171,8 @@ void printConfiguration() {
     Serial.print(ii +1);
     Serial.print(P(" Pulse length: "));
     Serial.print(configuration.pulseLength[ii]);
-    Serial.print(P(" Pulse interval: "));
-    Serial.print(configuration.pulseInterval[ii]);
+    Serial.print(P(" Pulse period: "));
+    Serial.print(configuration.pulseInterval[ii] + configuration.pulseLength[ii]);
     Serial.print(P(" Pulse active: "));
     if ( configuration.pulseActive[ii] == HIGH)
       Serial.print(P("HIGH"));
@@ -209,6 +213,7 @@ void printConfiguration() {
  * configurations/pulseLength/1/100
  * configurations/pulsePeriod/1/500
  * configurations/pulseActive/1/HIGH
+ * configurations/setDefaults/
  * 
  *
  */
@@ -216,6 +221,8 @@ void printConfiguration() {
 void handleRest() {
   int charsRead = Serial.readBytesUntil( '/', p_buffer, 63);
   p_buffer[charsRead] = '\0';
+  boolean saveChanges = true;
+
   
   if ( strcmp( "configurations", p_buffer) == 0) {
     
@@ -238,7 +245,7 @@ void handleRest() {
         configuration.pulseOrder = c;
     } else if ( strcmp( "pulseOrderInterval", p_buffer) == 0) {
       
-      //>>>>>>>>>>>>>>>>     Setting pulse interval <<<<<<<<<<<<<<
+      //>>>>>>>>>>>>>>>>     Setting pulse order interval <<<<<<<<<<<<<<
       int pulseOrderInterval = Serial.parseInt();
       if ( pulseOrderInterval > 0 && pulseOrderInterval <= 60000)
         configuration.pulseOrderInterval = pulseOrderInterval;
@@ -285,17 +292,27 @@ void handleRest() {
           configuration.pulsePassive[channel - 1] = HIGH;                               // Needs to be the oppersit ove active!
         }
       }
+    } else if ( strcmp( "setDefaults", p_buffer) == 0) {
+
+      //>>>>>>>>>>>>>>>>     Setting configurations to defautls values  <<<<<<<<<<<<<<
+      setConfigurationDefaults(); 
+      saveChanges = false;
     } else {
       Serial.print(P("\n\n>>>>>>>>>>>  Unknown parameter : "));
       Serial.println(p_buffer);
+      saveChanges = false;
     }
 
-    int charsWritten = EEPROM_writeAnything( CONFIG_ADDRESS, configuration);
+    int charsWritten = 0;
+    if (saveChanges)
+      charsWritten = EEPROM_writeAnything( CONFIG_ADDRESS, configuration);
                                                               #ifdef DEBUG
-                                                                if ( charsWritten == sizeof( configuration))
-                                                                  Serial.println(P("Configuration sucessfully written to EEMPROM"));
-                                                                else
-                                                                  Serial.println(P("F A I L E D   Writing configuration to EEPROM"));
+                                                                if (saveChanges) {
+                                                                  if ( charsWritten == sizeof( configuration))
+                                                                    Serial.println(P("Configuration sucessfully written to EEMPROM"));
+                                                                  else
+                                                                    Serial.println(P("F A I L E D   Writing configuration to EEPROM"));
+                                                                }
                                                               #endif
 
     delay(1000);
@@ -306,7 +323,7 @@ void handleRest() {
     //                ----------------------------------------------------------------------------------------------------------------------------------------------------- (149 characters
     Serial.println(P("\n\nConfigurable parameters for keyword <configurations>:\n\n<numberOfChannels>  /<1 - 10>\n<pulseOrder>        /<I, S, Q or R>"));
     Serial.println(P("<pulseOrderInterval>/<millisecunds>\n<pulseLength>       /<channel 1-10>/<millisecunds>\n<pulsePeriod>       /<channel 1-10>/<millisecunds>"));
-    Serial.println(P("<pulseActive>       /<channel 1-10>/<LOW or HIGH>\n<numberOfPulses>    /<channel 1-10>/<1 - 100000>\n"));
+    Serial.println(P("<pulseActive>       /<channel 1-10>/<LOW or HIGH>\n<numberOfPulses>    /<channel 1-10>/<1 - 100000>\nsetDefaults"));
     Serial.println(P("Eksamples to copy-paste into the serial monitor:")); 
     Serial.println(P("configurations/numberOfChannels/3             Sets number of channels to 3"));
     Serial.println(P("configurations/pulseOrder/S                   Sets puls order to Simultaneously"));
@@ -314,7 +331,8 @@ void handleRest() {
     Serial.println(P("configurations/pulseLength/2/50               Sets the pulse lenngth for channel 2 to 50 ms."));
     Serial.println(P("configurations/pulsePeriod/1/500              Sets pulse period to 500 ms."));
     Serial.println(P("configurations/pulseActive/1/HIGH             Sets puls as a HIGH pulse"));
-    Serial.println(P("configurations/numberOfPulses/1/1000          Sets the number of pulses to be fired, after second push on the push button.\n\n"));
+    Serial.println(P("configurations/numberOfPulses/1/1000          Sets the number of pulses to be fired, after second push on the push button."));
+    Serial.println(P("configurations/setDefaults/                   Sets all configurable parameters to defaults.\n\n"));
   }  
   while (Serial.available()) {
     char c = Serial.read();
@@ -361,6 +379,16 @@ void setup() {
   if (configuration.structVersion != CONFIGURATION_VERSION * 100 + MAX_NUMBER_OF_CHANNELS)
     setConfigurationDefaults();
 
+  charsRead = EEPROM_readAnything( CONFIG_ADDRESS, configuration);
+  if (configuration.structVersion != CONFIGURATION_VERSION * 100 + MAX_NUMBER_OF_CHANNELS) {
+                                                              #ifdef DEBUG
+                                                                Serial.println(P("FAILED to read configuration!!!"));
+                                                                Serial.println(P("Using defaults!"));
+                                                              #endif
+  setConfigurationDefaults();
+  }
+
+  Serial.println(P("\n\nStored Configuration:"));
   printConfiguration();
 
 
@@ -426,6 +454,14 @@ void setup() {
                                                               #ifdef DEBUG
                                                                 Serial.println(P("Initialized - Starting..."));
                                                               #endif
+
+  if ( configuration.pulseOrder == 'Q' || configuration.pulseOrder == 'S' || configuration.pulseOrder == 'R' ) {
+    Serial.println(P("\n\nPuls order configured as Sequentiel (Q), Simultaneously (S) or Randum (R)"));
+    Serial.println(P("Re-calculated configuration used:"));
+    printConfiguration();
+  }
+
+  
 
   digitalWrite( LED_BUILTIN, LOW);
 
