@@ -4,7 +4,6 @@
  * It will generate pulses on a number of output pins. 
  * 
  * Programmable parameters:
- * Only the structure for programmable parameters are in place. The parameters hardcoded as "default parameters" in function setConfigurationDefaults().
  * Parameters are and their defaults:
  * - Number of channels (MAX 10):           1 
  * - Pulse length in millis:                50
@@ -22,11 +21,12 @@
  *   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  * 
  */
-#define SKETCH_VERSION "Programable puls generator - Version 1.1.1"
+#define SKETCH_VERSION "Programable puls generator - Version 1.1.2"
 
 //#define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
 /*
  * Version histoty:
+ * 1.1.2 - Minor documentation corrections - No funktional changes
  * 1.1.1 - Documentation update - No funktional changes
  * 1.1.0 - Adding push button funktionality, which will fire a configured number of pulses on each channel. 
  *       - Configuration structure is changed.
@@ -306,7 +306,8 @@ void handleRest() {
     //                ----------------------------------------------------------------------------------------------------------------------------------------------------- (149 characters
     Serial.println(P("\n\nConfigurable parameters for keyword <configurations>:\n\n<numberOfChannels>  /<1 - 10>\n<pulseOrder>        /<I, S, Q or R>"));
     Serial.println(P("<pulseOrderInterval>/<millisecunds>\n<pulseLength>       /<channel 1-10>/<millisecunds>\n<pulsePeriod>       /<channel 1-10>/<millisecunds>"));
-    Serial.println(P("<pulseActive>       /<channel 1-10>/<LOW or HIGH>\n<numberOfPulses>    /<1 - 100000>\n\nEksamples to copy-paste into the serial monitor:"));
+    Serial.println(P("<pulseActive>       /<channel 1-10>/<LOW or HIGH>\n<numberOfPulses>    /<channel 1-10>/<1 - 100000>\n"));
+    Serial.println(P("Eksamples to copy-paste into the serial monitor:")); 
     Serial.println(P("configurations/numberOfChannels/3             Sets number of channels to 3"));
     Serial.println(P("configurations/pulseOrder/S                   Sets puls order to Simultaneously"));
     Serial.println(P("configurations/pulseOrderInterval/250         Sets puls interval to 250 ms."));
