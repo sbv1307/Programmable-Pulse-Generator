@@ -21,7 +21,7 @@
  *   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  * 
  */
-#define SKETCH_VERSION "Programable puls generator - Version 1.2.0"
+#define SKETCH_VERSION "Programable puls generator - Version 1.2.1"
 
 /*
  *    Defining DEBUGGING
@@ -29,6 +29,7 @@
 // #define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
 /*
  * Version histoty:
+ * 1.2.1 - Issues regarding configurations being changed, when Puls Order is changed from I to Q, S or R. handleRest() si change to reload the stored configuration, before adding changes.
  * 1.2.0 - Configuration bugfixes - Configuration defaults change to confiture alle MAX_NUMBER_OF_CHANNELS channels.
  * 1.1.2 - Minor documentation corrections - No funktional changes
  * 1.1.1 - Documentation update - No funktional changes
@@ -117,7 +118,7 @@ struct config_t                                     // Configuration are stored 
     int structVersion;                              //A way to determind the correct confiugration structure.
     int numberOfChannels;
     int numberOfPulses[MAX_NUMBER_OF_CHANNELS];               //Number of pulses fired, when push button is pushed twice.
-    boolean runContinous;                                     //When bottun is pushed twice, this will be changed to false.
+    boolean runContinous;                                     //When bottun is pushed twice, this will tuggle between true and false.
     char pulseOrder;                                          //A character value, which describe Simultaneously (S), Sequential (Q), Randum (R) 
     unsigned long pulseOrderInterval ;                        //In Sequentially mode a value between the pulses on each channel
     unsigned long pulseLength[MAX_NUMBER_OF_CHANNELS];        //Puls Length is in millisecunds.
@@ -142,8 +143,8 @@ void setConfigurationDefaults() {
   configuration.runContinous = true;                            //Default run continously. if false only the configured number of pulses will be fired
   for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
     configuration.pulseLength[ii] = 50;
-    configuration.pulseInterval[ii] = 1000;
-    configuration.numberOfPulses[ii] = 1;
+    configuration.pulseInterval[ii] = 950;
+    configuration.numberOfPulses[ii] = 10;
     configuration.pulseActive[ii] = LOW;                                  // This define if the pulse is active LOW or active HIGH
     if ( configuration.pulseActive[ii] == LOW )
       configuration.pulsePassive[ii] = HIGH;                                // Needs to be the oppersit ove active!
@@ -182,9 +183,9 @@ void printConfiguration() {
     Serial.println( configuration.numberOfPulses[ii]);
   }
   if ( configuration.runContinous)
-    Serial.println(P("Run continously."));
+    Serial.println(P("Run Infinite. PRESS pushbutton twice to change!"));
   else
-    Serial.println(P("Run Infinite."));
+    Serial.println(P("Run Limited. PRESS pushbutton twice to change!"));
     
   Serial.print(P("Pulse order: "));
   Serial.println(configuration.pulseOrder);
@@ -225,7 +226,9 @@ void handleRest() {
 
   
   if ( strcmp( "configurations", p_buffer) == 0) {
-    
+    //>>>>>>>>>>>>>>>>>>     Read stored configuraton, before adding changes   <<<<<<<<<<<<<<<<<
+    charsRead = EEPROM_readAnything( CONFIG_ADDRESS, configuration);
+      
     //>>>>>>>>>>>>>>>>>>     Setting configurations   <<<<<<<<<<<<<<<<<
     int charsRead = Serial.readBytesUntil( '/', p_buffer, 63);
     p_buffer[charsRead] = '\0';
@@ -325,7 +328,7 @@ void handleRest() {
     Serial.println(P("<pulseOrderInterval>/<millisecunds>\n<pulseLength>       /<channel 1-10>/<millisecunds>\n<pulsePeriod>       /<channel 1-10>/<millisecunds>"));
     Serial.println(P("<pulseActive>       /<channel 1-10>/<LOW or HIGH>\n<numberOfPulses>    /<channel 1-10>/<1 - 100000>\nsetDefaults"));
     Serial.println(P("Eksamples to copy-paste into the serial monitor:")); 
-    Serial.println(P("configurations/numberOfChannels/3             Sets number of channels to 3"));
+    Serial.println(P("configurations/numberOfChannels/7             Sets number of channels to 3"));
     Serial.println(P("configurations/pulseOrder/S                   Sets puls order to Simultaneously"));
     Serial.println(P("configurations/pulseOrderInterval/250         Sets puls interval to 250 ms."));
     Serial.println(P("configurations/pulseLength/2/50               Sets the pulse lenngth for channel 2 to 50 ms."));
@@ -466,7 +469,7 @@ void setup() {
   digitalWrite( LED_BUILTIN, LOW);
 
 /*
- * If programmed for Intermittent run transfer number of pulses per channnel, other wise set to 1;
+ * If programmed for limited run transfer number of pulses per channnel, other wise set to 1;
  */
 for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
   if ( !configuration.runContinous) 
@@ -554,6 +557,8 @@ void loop() {
                                                               #ifdef DEBUG
                                                                 Serial.println(P("Button pressed twice"));
                                                               #endif
+      buttonPressedOnce = false;
+      int charsRead = EEPROM_readAnything( CONFIG_ADDRESS, configuration);
       configuration.runContinous = false;
       int charsWritten = EEPROM_writeAnything( CONFIG_ADDRESS, configuration);
                                                               #ifdef DEBUG
@@ -566,6 +571,7 @@ void loop() {
       resetFunc();                                  // Call reset, to start pulse generator with new configuration.
 
       } else {
+        int charsRead = EEPROM_readAnything( CONFIG_ADDRESS, configuration);
         if (configuration.runContinous == false) {
           configuration.runContinous = true;
           int charsWritten = EEPROM_writeAnything( CONFIG_ADDRESS, configuration);
