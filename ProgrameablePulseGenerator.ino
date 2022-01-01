@@ -21,7 +21,7 @@
  *   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  * 
  */
-#define SKETCH_VERSION "Programable puls generator - Version 1.2.1"
+#define SKETCH_VERSION "Programable puls generator - Version 1.2.2"
 
 /*
  *    Defining DEBUGGING
@@ -29,6 +29,7 @@
 // #define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
 /*
  * Version histoty:
+ * 1.2.2 - Parameter for programmelable delay after "Run Infinite" to "Run Limited"
  * 1.2.1 - Issues regarding configurations being changed, when Puls Order is changed from I to Q, S or R. handleRest() si change to reload the stored configuration, before adding changes.
  * 1.2.0 - Configuration bugfixes - Configuration defaults change to confiture alle MAX_NUMBER_OF_CHANNELS channels.
  * 1.1.2 - Minor documentation corrections - No funktional changes
@@ -72,7 +73,7 @@
  *                       C  O  N  F  I  G  U  T  A  B  L  E       D  E  F  I  N  I  T  I  O  N  S
  * ######################################################################################################################################
 */
-#define CONFIGURATION_VERSION 3
+#define CONFIGURATION_VERSION 4
 #define MAX_NUMBER_OF_CHANNELS 10
 #define RANDUM_SEED_PIN 0
 #define BUTTON_PIN 19
@@ -119,6 +120,7 @@ struct config_t                                     // Configuration are stored 
     int numberOfChannels;
     int numberOfPulses[MAX_NUMBER_OF_CHANNELS];               //Number of pulses fired, when push button is pushed twice.
     boolean runContinous;                                     //When bottun is pushed twice, this will tuggle between true and false.
+    unsigned long runlimitedDelay;                            // the number of miliconds before the pulesgenerator starts, after configuration has change to "Run Limited"        
     char pulseOrder;                                          //A character value, which describe Simultaneously (S), Sequential (Q), Randum (R) 
     unsigned long pulseOrderInterval ;                        //In Sequentially mode a value between the pulses on each channel
     unsigned long pulseLength[MAX_NUMBER_OF_CHANNELS];        //Puls Length is in millisecunds.
@@ -141,6 +143,7 @@ void setConfigurationDefaults() {
   configuration.structVersion = CONFIGURATION_VERSION * 100 + MAX_NUMBER_OF_CHANNELS;
   configuration.numberOfChannels = MAX_NUMBER_OF_CHANNELS;
   configuration.runContinous = true;                            //Default run continously. if false only the configured number of pulses will be fired
+  configuration.runlimitedDelay = 5000;                         // Default: wait five secunds before restarting after configuration has changed to "Run Limited"
   for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
     configuration.pulseLength[ii] = 50;
     configuration.pulseInterval[ii] = 950;
@@ -186,30 +189,35 @@ void printConfiguration() {
     Serial.println(P("Run Infinite. PRESS pushbutton twice to change!"));
   else
     Serial.println(P("Run Limited. PRESS pushbutton twice to change!"));
-    
+  Serial.print(P("Delay restart when configuration changed to Run Limited for (miliconds): "));
+  Serial.println(configuration.runlimitedDelay);  
   Serial.print(P("Pulse order: "));
   Serial.println(configuration.pulseOrder);
   Serial.print(P("Pulse order interval: "));
   Serial.println(configuration.pulseOrderInterval);
   Serial.print(P("Connect Pushbutton to pin#: "));
   Serial.println(BUTTON_PIN);
+  Serial.println(P("\n\nHit <Enter> to get help!"));
 }
 
 /*
  * Handle REST function.
  * Expected character string:
- * /configurations/{parameret}/{id}/{value} or /configurations/{parameret}/{value} 
+ * /configurations/{parameret}/{id}/{value}, /configurations/{parameret}/{value} or configurations/{parameret}/ 
  * 
  *                <numberOfChannels>  /<1 - 10> 
  *                <pulseOrder>        /<I, S, Q or R>
+ *                <runlimitedDelay>   /<millisecunds>
  *                <pulseOrderInterval>/<millisecunds>
  *                <pulseLength>       /<channel 1-10>/<millisecunds>
  *                <pulsePeriod>       /<channel 1-10>/<millisecunds>
  *                <pulseActive>       /<channel 1-10>/<LOW or HIGH>
+ *                <setDefaults>       /
  *
  * Configuration examaples:
  * configurations/numberOfChannels/3
  * configurations/pulseOrder/S
+ * configurations/runlimitedDelay/5000
  * configurations/pulseOrderInterval/250
  * configurations/pulseLength/1/100
  * configurations/pulsePeriod/1/500
@@ -246,6 +254,12 @@ void handleRest() {
       c = p_buffer[0];
       if ( c == 'I' || c == 'S' || c == 'Q' || c == 'R' )
         configuration.pulseOrder = c;
+    } else if ( strcmp( "runlimitedDelay", p_buffer) == 0) {
+      
+      //>>>>>>>>>>>>>>>>     Setting run limited Delay <<<<<<<<<<<<<<
+      int runlimitedDelay = Serial.parseInt();
+      if ( runlimitedDelay > 1000 && runlimitedDelay <= 60000)
+        configuration.runlimitedDelay = runlimitedDelay;
     } else if ( strcmp( "pulseOrderInterval", p_buffer) == 0) {
       
       //>>>>>>>>>>>>>>>>     Setting pulse order interval <<<<<<<<<<<<<<
@@ -325,11 +339,13 @@ void handleRest() {
     Serial.println(p_buffer);
     //                ----------------------------------------------------------------------------------------------------------------------------------------------------- (149 characters
     Serial.println(P("\n\nConfigurable parameters for keyword <configurations>:\n\n<numberOfChannels>  /<1 - 10>\n<pulseOrder>        /<I, S, Q or R>"));
-    Serial.println(P("<pulseOrderInterval>/<millisecunds>\n<pulseLength>       /<channel 1-10>/<millisecunds>\n<pulsePeriod>       /<channel 1-10>/<millisecunds>"));
-    Serial.println(P("<pulseActive>       /<channel 1-10>/<LOW or HIGH>\n<numberOfPulses>    /<channel 1-10>/<1 - 100000>\nsetDefaults"));
+    Serial.println(P("<runlimitedDelay>   /<millisecunds>\n<pulseOrderInterval>/<millisecunds>\n<pulseLength>       /<channel 1-10>/<millisecunds>"));
+    Serial.println(P("<pulsePeriod>       /<channel 1-10>/<millisecunds>\n<pulseActive>       /<channel 1-10>/<LOW or HIGH>"));
+    Serial.println(P("<numberOfPulses>    /<channel 1-10>/<1 - 100000>\n<setDefaults>       /\n\n"));
     Serial.println(P("Eksamples to copy-paste into the serial monitor:")); 
     Serial.println(P("configurations/numberOfChannels/7             Sets number of channels to 3"));
     Serial.println(P("configurations/pulseOrder/S                   Sets puls order to Simultaneously"));
+    Serial.println(P("configurations/runlimitedDelay/5000           Sets delay for restart after change for configuration to Run Limited to 5000 ms."));
     Serial.println(P("configurations/pulseOrderInterval/250         Sets puls interval to 250 ms."));
     Serial.println(P("configurations/pulseLength/2/50               Sets the pulse lenngth for channel 2 to 50 ms."));
     Serial.println(P("configurations/pulsePeriod/1/500              Sets pulse period to 500 ms."));
@@ -567,7 +583,10 @@ void loop() {
                                                                 else
                                                                   Serial.println(P("F A I L E D   Writing configuration to EEPROM"));
                                                               #endif
-      delay(1000);
+      Serial.print(P("\nRestarting in "));
+      Serial.print(configuration.runlimitedDelay);
+      Serial.println(P(" mililconds..."));
+      delay(configuration.runlimitedDelay);
       resetFunc();                                  // Call reset, to start pulse generator with new configuration.
 
       } else {
