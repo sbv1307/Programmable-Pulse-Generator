@@ -21,14 +21,15 @@
  *   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  * 
  */
-#define SKETCH_VERSION "Programable puls generator - Version 1.2.2"
+#define SKETCH_VERSION "Programable puls generator - Version 1.2.3"
 
 /*
- *    Defining DEBUGGING
+ *    Define DEBUGGING
  */
-// #define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
+//#define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
 /*
  * Version histoty:
+ * 1.2.3 - Bugfix in Sequencial run and documentatino update
  * 1.2.2 - Parameter for programmelable delay after "Run Infinite" to "Run Limited"
  * 1.2.1 - Issues regarding configurations being changed, when Puls Order is changed from I to Q, S or R. handleRest() si change to reload the stored configuration, before adding changes.
  * 1.2.0 - Configuration bugfixes - Configuration defaults change to confiture alle MAX_NUMBER_OF_CHANNELS channels.
@@ -44,25 +45,25 @@
  * 
  * 
  *  **** Ardhino nano Pin definition/layout:***
- * Pin  0: Serial RX
- * Pin  1: Serial TX
- * Pin  2: Channel pin 1:
- * Pin  3: Channel pin 2: 
- * Pin  4: Channel pin 3:
- * Pin  5: Channel pin 4:
- * Pin  6: Channel pin 5:
- * Pin  7: Channel pin 6:
- * Pin  8: Channel pin 7:
- * Pin  10: Channel pin 9:
- * Pin  11: Channel pin 10:
- * Pin  12: Channel pin 11:
- * Pin  13: LED_BUILTIN. 
- * Pin  14: (A0): RANDUM_SEED_PIN    Used for randumSeed() to generate different seed numbers each time the sketch runs.
- * Pin  15: (A1): N/C
- * Pin  16: (A2): N/C
- * Pin  17: (A3): N/C
- * Pin  18: (A4): N/C
- * Pin  19: (A5): Button pin. Button to running in non continoougious mode (file configured numer of pulses)
+ * Pin  D0: Serial RX
+ * Pin  D1: Serial TX
+ * Pin  D2: Channel pin 1:
+ * Pin  D3: Channel pin 2: 
+ * Pin  D4: Channel pin 3:
+ * Pin  D5: Channel pin 4:
+ * Pin  D6: Channel pin 5:
+ * Pin  D7: Channel pin 6:
+ * Pin  D8: Channel pin 7:
+ * Pin  D10: Channel pin 9:
+ * Pin  D11: Channel pin 10:
+ * Pin  D12: Channel pin 11:
+ * Pin  D13: LED_BUILTIN. 
+ * Pin  D14: (A0): RANDUM_SEED_PIN    Used for randumSeed() to generate different seed numbers each time the sketch runs.
+ * Pin  D15: (A1): N/C
+ * Pin  D16: (A2): N/C
+ * Pin  D17: (A3): N/C
+ * Pin  D18: (A4): N/C
+ * Pin  D19: (A5): Button pin. Button to running in non continoougious mode (file configured numer of pulses)
  */
 #include <EEPROM.h>
 #include "EEPROMAnything.h"
@@ -182,13 +183,13 @@ void printConfiguration() {
       Serial.print(P("HIGH"));
     else
       Serial.print(P("LOW"));
-    Serial.print(P(". Number of pulses generated if Infinite run: "));
+    Serial.print(P(". Number of pulses generated if Limited run: "));
     Serial.println( configuration.numberOfPulses[ii]);
   }
   if ( configuration.runContinous)
     Serial.println(P("Run Infinite. PRESS pushbutton twice to change!"));
   else
-    Serial.println(P("Run Limited. PRESS pushbutton twice to change!"));
+    Serial.println(P("Run Limited. PRESS pushbutton once to change!"));
   Serial.print(P("Delay restart when configuration changed to Run Limited for (miliconds): "));
   Serial.println(configuration.runlimitedDelay);  
   Serial.print(P("Pulse order: "));
@@ -338,7 +339,8 @@ void handleRest() {
     Serial.print("Unknown command - expected <configurations>: ");
     Serial.println(p_buffer);
     //                ----------------------------------------------------------------------------------------------------------------------------------------------------- (149 characters
-    Serial.println(P("\n\nConfigurable parameters for keyword <configurations>:\n\n<numberOfChannels>  /<1 - 10>\n<pulseOrder>        /<I, S, Q or R>"));
+    Serial.println(P("\n\nConfigurable parameters for keyword <configurations>:\n\n<numberOfChannels>  /<1 - 10>"));
+    Serial.println(P("<pulseOrder>        /<I (Individual), S (Simultaneously), Q (Sequential) or R (Randum)>"));
     Serial.println(P("<runlimitedDelay>   /<millisecunds>\n<pulseOrderInterval>/<millisecunds>\n<pulseLength>       /<channel 1-10>/<millisecunds>"));
     Serial.println(P("<pulsePeriod>       /<channel 1-10>/<millisecunds>\n<pulseActive>       /<channel 1-10>/<LOW or HIGH>"));
     Serial.println(P("<numberOfPulses>    /<channel 1-10>/<1 - 100000>\n<setDefaults>       /\n\n"));
@@ -374,7 +376,7 @@ void setup() {
   unsigned long maxPulsePeriod = 0;
 
   pinMode( LED_BUILTIN, OUTPUT);
-  digitalWrite( LED_BUILTIN, HIGH);
+  digitalWrite( LED_BUILTIN, HIGH);                  // Initialization started
   Serial.begin( 115200);
                                                               #ifdef DEBUG
                                                                 while (!Serial) {
@@ -428,7 +430,7 @@ void setup() {
     if ( configuration.pulseOrder == 'Q' ) {
        maxPulsePeriod = maxPulsePeriod + configuration.pulseLength[ii] + configuration.pulseOrderInterval;   //To ensure that all pulses on all channels can be within the same period
        if ( ii > 0 )
-         channelOffsetStartTime[ii] = configuration.pulseLength[ii - 1] + configuration.pulseOrderInterval;  //To start the pulses in sequentiel order, calculate offset
+         channelOffsetStartTime[ii] = channelOffsetStartTime[ii - 1] + configuration.pulseLength[ii - 1] + configuration.pulseOrderInterval;  //To start the pulses in sequentiel order, calculate offset
     } else if ( configuration.pulseOrder == 'S' || configuration.pulseOrder == 'R' ) {
       if ( configuration.pulseLength[ii] > maxPulseLength)
         maxPulseLength = configuration.pulseLength[ii];
@@ -470,19 +472,12 @@ void setup() {
      for ( int ii = 0; ii < configuration.numberOfChannels; ii++)
        channelOffsetStartTime[ii] = random( maxPulsePeriod);
    }
-                                                              #ifdef DEBUG
-                                                                Serial.println(P("Initialized - Starting..."));
-                                                              #endif
 
   if ( configuration.pulseOrder == 'Q' || configuration.pulseOrder == 'S' || configuration.pulseOrder == 'R' ) {
     Serial.println(P("\n\nPuls order configured as Sequentiel (Q), Simultaneously (S) or Randum (R)"));
     Serial.println(P("Re-calculated configuration used:"));
     printConfiguration();
   }
-
-  
-
-  digitalWrite( LED_BUILTIN, LOW);
 
 /*
  * If programmed for limited run transfer number of pulses per channnel, other wise set to 1;
@@ -507,6 +502,13 @@ for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
     for ( int ii = 0; ii < configuration.numberOfChannels; ii++) 
       channelTimeStamp[ii] = currentTimeStamp;
   }
+
+  digitalWrite( LED_BUILTIN, LOW);
+
+  Serial.print(P("Initialized - Starting in "));
+  Serial.print(configuration.pulseInterval[0]);
+  Serial.println(P(" Miliseconds..."));
+
 }
 
 /*
@@ -521,7 +523,7 @@ for ( int ii = 0; ii < configuration.numberOfChannels; ii++) {
 void loop() {
 
   /*
-   * <<<<<<<<<<<<<<<<<<<<<<<<<<<<  Pulse counting section >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><
+   * <<<<<<<<<<<<<<<<<<<<<<<<<<<<  Pulse generation section >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><
    */
   unsigned long currentTimeStamp = millis();
 
@@ -529,25 +531,46 @@ void loop() {
     if ( pinState[ii] == PASSIVE && currentTimeStamp - channelTimeStamp[ii] > configuration.pulseInterval[ii] + channelOffsetStartTime[ii] && numberOfPulses[ii] > 0) {
       if ( ii == 0)
         digitalWrite( LED_BUILTIN, HIGH);
-        
+
+                                                              #ifdef DEBUG
+                                                                Serial.print("Channel [");
+                                                                Serial.print(ii);
+                                                                Serial.println("] Active");
+                                                              #endif
+       
       digitalWrite( channelPin[ii], configuration.pulseActive[ii]);
       pinState[ii] = ACTIVE;
       channelTimeStamp[ii] = currentTimeStamp; 
       channelOffsetStartTime[ii] = 0;
-      if ( !configuration.runContinous)
+      if ( !configuration.runContinous) {
         numberOfPulses[ii]--;
+        if ( numberOfPulses[ii] == 0) {
+          Serial.print(configuration.numberOfPulses[ii]);
+          Serial.print(P(" pulses fired on channel ["));
+          Serial.print(ii);
+          Serial.println(P("]. Press push button once to continue or twice to restart!"));
+        }
+      } 
+        
+      
    } else if ( pinState[ii] == ACTIVE && currentTimeStamp - channelTimeStamp[ii] > configuration.pulseLength[ii]){
        
       if ( ii == 0)
         digitalWrite( LED_BUILTIN, LOW );
         
-      digitalWrite( channelPin[ii], configuration.pulsePassive[ii]);
+                                                              #ifdef DEBUG
+                                                                Serial.print("Channel [");
+                                                                Serial.print(ii);
+                                                                Serial.println("] Passive");
+                                                              #endif
+
+    digitalWrite( channelPin[ii], configuration.pulsePassive[ii]);
       pinState[ii] = PASSIVE;
       channelTimeStamp[ii] = currentTimeStamp;
     }
   }
 
-    /*
+  /*
    * <<<<<<<<<<<<<<<<<<<<<<<<<<<<  Push button section >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><
    */
 
