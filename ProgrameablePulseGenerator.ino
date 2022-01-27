@@ -5,7 +5,8 @@
  * 
  * Programmable parameters:
  * Parameters are and their defaults:
- * - Number of channels (MAX 10):           1 
+ * - Number of 
+ * channels (MAX 10):           1 
  * - Pulse length in millis:                50
  * - Pulse interval in millis:              1000
  * - Pulse order interval in millis:        250
