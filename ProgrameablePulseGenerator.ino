@@ -29,7 +29,7 @@
 //#define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
 /*
  * Version histoty:
- * 1.2.3 - Bugfix in Sequencial run. 
+ * 1.2.3 - Bugfix in Sequencial run and documentatino update
  * 1.2.2 - Parameter for programmelable delay after "Run Infinite" to "Run Limited"
  * 1.2.1 - Issues regarding configurations being changed, when Puls Order is changed from I to Q, S or R. handleRest() si change to reload the stored configuration, before adding changes.
  * 1.2.0 - Configuration bugfixes - Configuration defaults change to confiture alle MAX_NUMBER_OF_CHANNELS channels.
@@ -339,7 +339,8 @@ void handleRest() {
     Serial.print("Unknown command - expected <configurations>: ");
     Serial.println(p_buffer);
     //                ----------------------------------------------------------------------------------------------------------------------------------------------------- (149 characters
-    Serial.println(P("\n\nConfigurable parameters for keyword <configurations>:\n\n<numberOfChannels>  /<1 - 10>\n<pulseOrder>        /<I, S, Q or R>"));
+    Serial.println(P("\n\nConfigurable parameters for keyword <configurations>:\n\n<numberOfChannels>  /<1 - 10>"));
+    Serial.println(P("<pulseOrder>        /<I (Individual), S (Simultaneously), Q (Sequential) or R (Randum)>"));
     Serial.println(P("<runlimitedDelay>   /<millisecunds>\n<pulseOrderInterval>/<millisecunds>\n<pulseLength>       /<channel 1-10>/<millisecunds>"));
     Serial.println(P("<pulsePeriod>       /<channel 1-10>/<millisecunds>\n<pulseActive>       /<channel 1-10>/<LOW or HIGH>"));
     Serial.println(P("<numberOfPulses>    /<channel 1-10>/<1 - 100000>\n<setDefaults>       /\n\n"));
