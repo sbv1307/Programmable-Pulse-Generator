@@ -22,14 +22,16 @@
  *   : Randum 'R' Pulses starts randumly om each channel and follow their own length and interval.
  * 
  */
-#define SKETCH_VERSION "Programable puls generator - Version 1.2.3"
+#define SKETCH_VERSION "Programable puls generator - Version 1.2.4"
 
 /*
  *    Define DEBUGGING
  */
-//#define DEBUG  //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
+// #define DEBUG       //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
+// #define PULSE_DEBUG // If defined output state for each channel is displayed. (Gives a lot of output...) 
 /*
  * Version histoty:
+ * 1.2.4 - Bugfix: Cannot set pulseLength. [if ( value = 0 ... changed to  if ( value >= 0 ...] Value would never be zero:-)
  * 1.2.3 - Bugfix in Sequencial run and documentatino update
  * 1.2.2 - Parameter for programmelable delay after "Run Infinite" to "Run Limited"
  * 1.2.1 - Issues regarding configurations being changed, when Puls Order is changed from I to Q, S or R. handleRest() si change to reload the stored configuration, before adding changes.
@@ -260,7 +262,7 @@ void handleRest() {
       
       //>>>>>>>>>>>>>>>>     Setting run limited Delay <<<<<<<<<<<<<<
       int runlimitedDelay = Serial.parseInt();
-      if ( runlimitedDelay > 1000 && runlimitedDelay <= 60000)
+      if ( runlimitedDelay >= 1000 && runlimitedDelay <= 60000)
         configuration.runlimitedDelay = runlimitedDelay;
     } else if ( strcmp( "pulseOrderInterval", p_buffer) == 0) {
       
@@ -272,11 +274,14 @@ void handleRest() {
       
       //>>>>>>>>>>>>>>>>     Setting pulse length <<<<<<<<<<<<<<
       int channel = Serial.parseInt();
+
       if ( channel > 0 && channel <= configuration.numberOfChannels) {
         int value = Serial.parseInt();
-        if ( value = 0 && value <= 60000 )
+
+        if ( value >= 0 && value <= 60000 )
           configuration.pulseLength[channel - 1] = value;        
       }
+
     } else if ( strcmp( "pulsePeriod", p_buffer) == 0) {
       
       //>>>>>>>>>>>>>>>>     Setting pulse period <<<<<<<<<<<<<<
@@ -346,7 +351,7 @@ void handleRest() {
     Serial.println(P("<pulsePeriod>       /<channel 1-10>/<millisecunds>\n<pulseActive>       /<channel 1-10>/<LOW or HIGH>"));
     Serial.println(P("<numberOfPulses>    /<channel 1-10>/<1 - 100000>\n<setDefaults>       /\n\n"));
     Serial.println(P("Eksamples to copy-paste into the serial monitor:")); 
-    Serial.println(P("configurations/numberOfChannels/7             Sets number of channels to 3"));
+    Serial.println(P("configurations/numberOfChannels/3             Sets number of channels to 3"));
     Serial.println(P("configurations/pulseOrder/S                   Sets puls order to Simultaneously"));
     Serial.println(P("configurations/runlimitedDelay/5000           Sets delay for restart after change for configuration to Run Limited to 5000 ms."));
     Serial.println(P("configurations/pulseOrderInterval/250         Sets puls interval to 250 ms."));
@@ -533,7 +538,7 @@ void loop() {
       if ( ii == 0)
         digitalWrite( LED_BUILTIN, HIGH);
 
-                                                              #ifdef DEBUG
+                                                              #ifdef PULSE_DEBUG
                                                                 Serial.print("Channel [");
                                                                 Serial.print(ii);
                                                                 Serial.println("] Active");
@@ -548,7 +553,7 @@ void loop() {
         if ( numberOfPulses[ii] == 0) {
           Serial.print(configuration.numberOfPulses[ii]);
           Serial.print(P(" pulses fired on channel ["));
-          Serial.print(ii);
+          Serial.print(ii + 1);
           Serial.println(P("]. Press push button once to continue or twice to restart!"));
         }
       } 
@@ -559,7 +564,7 @@ void loop() {
       if ( ii == 0)
         digitalWrite( LED_BUILTIN, LOW );
         
-                                                              #ifdef DEBUG
+                                                              #ifdef PULSE_DEBUG
                                                                 Serial.print("Channel [");
                                                                 Serial.print(ii);
                                                                 Serial.println("] Passive");
