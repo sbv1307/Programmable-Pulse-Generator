@@ -30,7 +30,7 @@
 // #define DEBUG       //If defined ("//" is removed at the beginning of this line.) debug informations are printed to Serial.
 // #define PULSE_DEBUG // If defined output state for each channel is displayed. (Gives a lot of output...) 
 /*
- * Version histoty:
+ * Version history:
  * 1.2.4 - Bugfix: Cannot set pulseLength. [if ( value = 0 ... changed to  if ( value >= 0 ...] Value would never be zero:-)
  * 1.2.3 - Bugfix in Sequencial run and documentatino update
  * 1.2.2 - Parameter for programmelable delay after "Run Infinite" to "Run Limited"

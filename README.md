@@ -22,7 +22,11 @@
    When the push button is pressed twice, the pulse generator restarts, at fires the configured pulses on each channel.
    When the push button is pressed once, after it has been pushed twice, the pusle generator restarts and runs infinitly.
    
- ### Version histoty:
+ ### **Firmware Version histoty:**
+ * 1.2.4 - Bugfix: Cannot set pulseLength. [if ( value = 0 ... changed to  if ( value >= 0 ...] Value would never be zero:-)
+ * 1.2.3 - Bugfix in Sequencial run and documentatino update
+ * 1.2.2 - Parameter for programmelable delay after "Run Infinite" to "Run Limited"
+ * 1.2.1 - Issues regarding configurations being changed, when Puls Order is changed from I to Q, S or R. handleRest() si change to reload the stored configuration, before adding changes.
  * 1.2.0 - Configuration bugfixes
  * 1.1.2 - Minor documentation corrections - No funktional changes
 
@@ -89,3 +93,6 @@ The project "EnergyRegistgration", which are build to register pulses on the ope
 This project is to investigate into this problem.
 
 ##### 1. <span id="f1"></span>Note: If pulseOrder is set to 'Q', puls period on channel 1 will define the pause from the last puls in the sequence to the first starts. 
+
+### **Project Version History:**
+2.0.0 - Hardware merged with Firmware (initial product version)

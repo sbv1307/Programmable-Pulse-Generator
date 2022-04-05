@@ -1,0 +1,7 @@
+(fp_lib_table
+  (lib (name "Local_Connectors")(type "KiCad")(uri "${KIPRJMOD}/library/footprints/Local_Connectors.pretty")(options "")(descr ""))
+  (lib (name "Local_MCU_Module_Library")(type "KiCad")(uri "${KIPRJMOD}/library/footprints/Local_MCU_Module_Library.pretty")(options "")(descr ""))
+  (lib (name "Local_Package_TO_SOT_SMD")(type "KiCad")(uri "${KIPRJMOD}/library/footprints/Local_Package_TO_SOT_SMD.pretty")(options "")(descr ""))
+  (lib (name "Local_Resistor_Library")(type "KiCad")(uri "${KIPRJMOD}/library/footprints/Local_Resistor_Library.pretty")(options "")(descr ""))
+  (lib (name "Local_Misckllaneous_Library")(type "KiCad")(uri "${KIPRJMOD}/library/footprints/Local_Misckllaneous_Library.pretty")(options "")(descr ""))
+)
